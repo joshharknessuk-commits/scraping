@@ -1,0 +1,3 @@
+# Ignore scraped HTML and logs; they are generated locally.
+*
+!.gitignore
