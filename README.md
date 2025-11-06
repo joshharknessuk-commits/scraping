@@ -1,33 +1,75 @@
-# Southwark licence scraping
+# Council HMO scraping toolkit
 
-This folder now contains a single requests + BeautifulSoup pipeline for collecting Southwark licence data from the Metastreet public register.
+This repository bundles Playwright-based scrapers for the Southwark and Lambeth HMO public registers. Each scraper shares a common
+set of browser utilities, storage helpers, and orchestration logic to keep behaviour consistent across councils.
 
-## Prerequisites
+## Repository layout
+
+```
+common/           # shared browser, config, logging and persistence utilities
+southwark/        # Southwark-specific config, fetch, parse, runner and fixtures
+lambeth/          # Lambeth-specific modules mirroring the Southwark package
+tests/            # pytest suite with dry-run fixtures
+data/             # default output directory (JSON, HTML snapshots, logs)
+requirements.txt
+```
+
+## Installation
 
 ```bash
-cd packages/housing-data
 python -m venv .venv
 source .venv/bin/activate
-pip install -r src/scraping/requirements.txt
+pip install -r requirements.txt
+playwright install chromium
 ```
 
-## Run the scraper
+## Running the scrapers
+
+Both council packages expose a CLI entry point via `python -m`:
 
 ```bash
-python src/scraping/southwark_fetch.py
+# Southwark
+python -m southwark --dry-run --output-root data
+
+# Lambeth
+python -m lambeth --dry-run --output-root data
 ```
 
-The scraper issues HTTP requests per postcode, saves the underlying HTML, and parses the responses offline. It writes:
+- Omit `--dry-run` to perform a live scrape with Patchright/Playwright.
+- Provide explicit postcodes as positional arguments; otherwise the bundled postcode list is used.
+- Outputs are written to `<output-root>/<council_slug>/` and include JSON datasets, metadata, HTML snapshots (when
+  `SnapshotMode.ALL` is configured), and logs.
+- Dry-run mode ships with a single demonstration postcode fixture per council. Any unspecified postcode is skipped with a log
+  warning so you can target the bundled examples explicitly (`SE1 0AA` for Southwark, `SW9 0AA` for Lambeth).
 
-- Search results to `src/scraping/data/southwark/search_pages/`
-- Licence detail pages to `src/scraping/data/southwark/licence_pages/`
-- Additional info pages to `src/scraping/data/southwark/additional_pages/`
-- Structured data to `src/scraping/data/southwark/southwark_licences.json` and `.csv`
-- Debug HTML for recent errors to `src/scraping/data/southwark/debug.html`
-- Fetch logs to `src/scraping/data/southwark/logs/`
+Programmatic execution mirrors the CLI. The runner returns a list of `LicenceRecord` instances:
 
-You can re-run `python src/scraping/southwark_parse.py` if you need to reprocess previously saved HTML.
+```python
+from southwark import Settings, run
 
-## Postcode source
+records = run(["SE1 0AA"], Settings(dry_run=True))
+print(records[0].address)
+```
 
-`southwark_postcodes.txt` holds the SE postcode list used by the scraper. Update the file if the coverage needs to change.
+## Tests and dry-run fixtures
+
+The pytest suite exercises both scrapers using local HTML fixtures. To run the tests:
+
+```bash
+pytest
+```
+
+Dry-run mode reads HTML from `southwark/fixtures/` and `lambeth/fixtures/`, allowing the parsers to be validated without
+live network traffic. The tests assert that JSON datasets, metadata files, and occupancy parsing behave as expected.
+
+## Output artefacts
+
+Every scrape writes the following artefacts under the council-specific output directory:
+
+- `search_pages/`: optional search result snapshots when `SnapshotMode.ALL` is enabled.
+- `licence_pages/` and `additional_pages/`: licence detail and supporting HTML.
+- `metadata.json`: metadata for each captured licence, including URLs and occupancy counts.
+- `<council>_licences.json` / `.jsonl`: structured datasets suitable for downstream analysis.
+- `logs/`: rotating scraper logs and a `fetch_failures.log` when errors occur.
+
+Dry-run invocations still emit these artefacts, making it easy to confirm integrations and expected schema changes.
