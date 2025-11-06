@@ -1,33 +1,74 @@
-# Southwark licence scraping
+# UK Council HMO Scraping
 
-This folder now contains a single requests + BeautifulSoup pipeline for collecting Southwark licence data from the Metastreet public register.
+This repository collects public HMO licence records for Southwark and Lambeth councils using Patchright (Playwright) automation. The codebase now shares a common orchestration layer and storage helpers so each council module only maintains its parsing rules and configuration.
 
-## Prerequisites
+## Repository layout
+
+```
+common/           # shared browser, config, storage, orchestration helpers
+southwark/        # Southwark specific config, parsing and CLI entry
+lambeth/          # Lambeth specific config, parsing and CLI entry
+tests/            # pytest-based smoke tests with HTML fixtures
+data/             # default output location for scraped artefacts
+requirements.txt  # Python runtime and tooling dependencies
+```
+
+## Getting started
 
 ```bash
-cd packages/housing-data
 python -m venv .venv
 source .venv/bin/activate
-pip install -r src/scraping/requirements.txt
+pip install -r requirements.txt
+python -m patchright install chromium
 ```
 
-## Run the scraper
+> The Playwright browser download only needs to run once per machine.
+
+## Running the scrapers
+
+Both scrapers expose a CLI so you can run them directly with `python -m`:
 
 ```bash
-python src/scraping/southwark_fetch.py
+# Southwark scrape
+python -m southwark.runner --postcodes-file southwark_postcodes.txt
+
+# Lambeth scrape
+python -m lambeth.runner --postcodes-file lambeth_postcodes.txt
 ```
 
-The scraper issues HTTP requests per postcode, saves the underlying HTML, and parses the responses offline. It writes:
+Important flags:
 
-- Search results to `src/scraping/data/southwark/search_pages/`
-- Licence detail pages to `src/scraping/data/southwark/licence_pages/`
-- Additional info pages to `src/scraping/data/southwark/additional_pages/`
-- Structured data to `src/scraping/data/southwark/southwark_licences.json` and `.csv`
-- Debug HTML for recent errors to `src/scraping/data/southwark/debug.html`
-- Fetch logs to `src/scraping/data/southwark/logs/`
+- `--headed` launches Chromium with a visible window for debugging.
+- `--force` ignores cached HTML snapshots and refetches everything.
+- `--jsonl-output` streams captured licences to a JSONL file while the scrape runs.
+- `--dry-run --fixture-dir tests/fixtures/<council>` replays the static HTML used by the automated tests.
 
-You can re-run `python src/scraping/southwark_parse.py` if you need to reprocess previously saved HTML.
+Outputs default to `data/<council>/` and include search snapshots, licence HTML, metadata and `*_licences.json`.
 
-## Postcode source
+## Dry-run fixture mode
 
-`southwark_postcodes.txt` holds the SE postcode list used by the scraper. Update the file if the coverage needs to change.
+For development or CI testing you can disable live browsing entirely:
+
+```bash
+python -m southwark.runner --dry-run --fixture-dir tests/fixtures/southwark --out-dir data/southwark
+```
+
+The runner parses the bundled HTML fixtures, writes the dataset and metadata files, and exits without launching Patchright.
+
+## Tests
+
+Lightweight regression tests validate the dry-run flow for both councils:
+
+```bash
+pytest
+```
+
+Each test executes one postcode scrape using the fixture HTML, asserts the resulting JSON payload, and verifies the output files are created correctly.
+
+## Coding standards
+
+- Code follows PEP 8 with type hints across modules.
+- All writes use safe directory creation to avoid permission errors.
+- Logging reports start/end status, retry attempts, and failure summaries per run.
+
+Refer to `AGENTS.md` for additional contribution guidelines.
