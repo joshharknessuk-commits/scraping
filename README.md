@@ -1,75 +1,65 @@
-# Council HMO scraping toolkit
+# Southwark landlord licence scraper
 
-This repository bundles Playwright-based scrapers for the Southwark and Lambeth HMO public registers. Each scraper shares a common
-set of browser utilities, storage helpers, and orchestration logic to keep behaviour consistent across councils.
+This project provides a modular Python scraper for the Southwark Council landlord licence public register. It combines `requests`
+for HTTP fetching, BeautifulSoup for HTML parsing, and Playwright for a human-in-the-loop CAPTCHA workflow. Results are emitted as
+both JSON Lines (streaming) and aggregated JSON files for downstream analysis.
 
-## Repository layout
-
-```
-common/           # shared browser, config, logging and persistence utilities
-southwark/        # Southwark-specific config, fetch, parse, runner and fixtures
-lambeth/          # Lambeth-specific modules mirroring the Southwark package
-tests/            # pytest suite with dry-run fixtures
-data/             # default output directory (JSON, HTML snapshots, logs)
-requirements.txt
-```
-
-## Installation
+## Quickstart
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
+python -m src.main --postcode SE1 --max-pages 100 --use-playwright
 ```
 
-## Running the scrapers
+- `--postcode` is required and is passed straight to the council search box.
+- `--max-pages` controls pagination depth; omit to crawl until the register stops returning new links.
+- Pass `--resume` to skip URLs that already exist in `out/licences.jsonl`.
+- Add `--use-playwright` to launch a headed Chromium session so you can solve the CAPTCHA manually and persist the cookies for
+  subsequent `requests` calls.
 
-Both council packages expose a CLI entry point via `python -m`:
+## Outputs
 
-```bash
-# Southwark
-python -m southwark --dry-run --output-root data
+Scraped artefacts are written under `out/`:
 
-# Lambeth
-python -m lambeth --dry-run --output-root data
-```
+- `out/licences.jsonl`: one JSON record per licence written as it is scraped.
+- `out/licences.json`: aggregated list of all scraped licences (including resumed records).
+- `out/licence_links.csv`: optional history of discovered detail-page URLs.
+- `out/cookies.json`: Playwright-exported cookies that allow the scraper to reuse a CAPTCHA-cleared session.
 
-- Omit `--dry-run` to perform a live scrape with Patchright/Playwright.
-- Provide explicit postcodes as positional arguments; otherwise the bundled postcode list is used.
-- Outputs are written to `<output-root>/<council_slug>/` and include JSON datasets, metadata, HTML snapshots (when
-  `SnapshotMode.ALL` is configured), and logs.
-- Dry-run mode ships with a single demonstration postcode fixture per council. Any unspecified postcode is skipped with a log
-  warning so you can target the bundled examples explicitly (`SE1 0AA` for Southwark, `SW9 0AA` for Lambeth).
+## Ethical considerations
 
-Programmatic execution mirrors the CLI. The runner returns a list of `LicenceRecord` instances:
+The Southwark register uses reCAPTCHA to protect against automated scraping. This project does **not** attempt to bypass that
+protection. Instead, run the scraper with `--use-playwright`, manually solve the CAPTCHA in the opened Chromium window, and press
+Enter in the terminal to continue. Respect the built-in rate limiting (`0.8s` between requests by default) and avoid overwhelming
+the council systems.
 
-```python
-from southwark import Settings, run
+## Testing
 
-records = run(["SE1 0AA"], Settings(dry_run=True))
-print(records[0].address)
-```
-
-## Tests and dry-run fixtures
-
-The pytest suite exercises both scrapers using local HTML fixtures. To run the tests:
+The repository includes a lightweight pytest suite exercising the AjaxCom parsing utilities and the HTML parsers:
 
 ```bash
 pytest
 ```
 
-Dry-run mode reads HTML from `southwark/fixtures/` and `lambeth/fixtures/`, allowing the parsers to be validated without
-live network traffic. The tests assert that JSON datasets, metadata files, and occupancy parsing behave as expected.
+## Project layout
 
-## Output artefacts
-
-Every scrape writes the following artefacts under the council-specific output directory:
-
-- `search_pages/`: optional search result snapshots when `SnapshotMode.ALL` is enabled.
-- `licence_pages/` and `additional_pages/`: licence detail and supporting HTML.
-- `metadata.json`: metadata for each captured licence, including URLs and occupancy counts.
-- `<council>_licences.json` / `.jsonl`: structured datasets suitable for downstream analysis.
-- `logs/`: rotating scraper logs and a `fetch_failures.log` when errors occur.
-
-Dry-run invocations still emit these artefacts, making it easy to confirm integrations and expected schema changes.
+```
+requirements.txt
+README.md
+src/
+  ajaxcom.py
+  config.py
+  detail_parser.py
+  main.py
+  outputter.py
+  playwright_capture.py
+  sessioner.py
+  utils.py
+  __init__.py
+tests/
+  test_ajaxcom.py
+  test_parsers.py
+```
