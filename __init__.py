@@ -1,2 +1,1 @@
-"""Tools for scraping council HMO licence data."""
-
+"""Tools for scraping UK council HMO licence registers."""
