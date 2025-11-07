@@ -1,4 +1,4 @@
-.PHONY: install test lint format scrape-southwark scrape-lambeth
+.PHONY: install test lint format typecheck scrape
 
 install:
 python -m venv .venv
@@ -10,14 +10,11 @@ ruff check .
 format:
 ruff format .
 
-mypy:
-mypy common southwark lambeth
+typecheck:
+mypy southwark
 
 test:
 pytest
 
-scrape-southwark:
+scrape:
 python -m southwark.runner
-
-scrape-lambeth:
-python -m lambeth.runner

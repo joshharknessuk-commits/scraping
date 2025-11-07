@@ -1,19 +1,13 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-Core scraping logic lives in `southwark_scraper/`, which bundles the Playwright browser helpers, parsing utilities, and storage helpers. CLI entry points `southwark_fetch.py` (acquire HTML) and `southwark_parse.py` (offline parse) sit in the repository root. Generated artefacts are written to `data/southwark/`, including search-page snapshots, licence detail HTML, logs, and the JSON/CSV datasets. Reference inputs such as `southwark_postcodes.txt` also live at the root. If you add automated tests, mirror the package layout under `tests/`.
+## Project Structure
+The scraper focuses solely on the Southwark council register.  Core code lives in the `southwark/` package which contains configuration, browser helpers, HTML parsing utilities, the runner, and the CLI.  Output artefacts are written to `data/southwark/` by default.  Test fixtures and regression tests sit under `tests/`.
 
-## Build, Test, and Development Commands
-`python3 -m venv .venv && source .venv/bin/activate` creates and activates the project virtual environment. `pip install -r requirements.txt` installs runtime and tooling dependencies. Run `playwright install chromium` once per machine to provision the browser binary. Use `python3 southwark_fetch.py` for a full headless scrape, or add flags such as `--headed`, `--max-pages 1`, or `--force` for debugging. Execute `python3 southwark_parse.py` to regenerate structured outputs from cached HTML. `python3 -m compileall southwark_scraper` offers a quick syntax check.
+## Development Commands
+Create a virtual environment with `python -m venv .venv` and install dependencies via `pip install -r requirements.txt`.  Provision the Chromium binary once using `patchright install chromium`.  Run the scraper with `python -m southwark.runner`.  The regression suite is executed with `pytest`.  `ruff check` and `mypy southwark` provide linting and type coverage.
 
-## Coding Style & Naming Conventions
-Follow PEP 8 conventions: 4-space indentation, snake_case functions, PascalCase classes, and module-level constants in UPPER_SNAKE_CASE. Keep imports explicit and sorted logically. Logging should use the existing namespaces (`southwark.scraper`, `southwark.parse`) and favour actionable messages. Before submitting, run `ruff check` for linting and `mypy southwark_scraper` for type validation.
+## Coding Style
+Follow PEP 8: 4-space indentation, snake_case names, and clear docstrings for key functions.  Avoid unnecessary abstraction—the goal is a small, readable codebase.  Use `SnapshotMode` values (`none` or `all`) when adding CLI options that affect snapshotting.
 
-## Testing Guidelines
-Adopt `pytest` for new tests. Name files `test_<module>.py` and place them under `tests/`, mirroring the source hierarchy. Prefer fixtures for Playwright setup/teardown and include representative HTML fixtures when asserting parser behaviour. Ensure new features include at least one regression test verifying expected output records.
-
-## Commit & Pull Request Guidelines
-Write commit subjects in the imperative mood (e.g., `Add Southwark pagination guard`) with additional context in the body when needed. Squash incidental commits before publishing a review. PR descriptions must summarise the change, list validation commands, and mention data backfills or manual steps. Include screenshots or log snippets for any user-visible scraper behaviour change.
-
-## Security & Configuration Tips
-Do not commit credentials; the scraper targets public pages and should remain keyless. Respect council rate limits—retain the default delay range unless you have explicit approval to alter it. Keep personal data sourced from the register within the generated artefacts directory and share responsibly.
+## Testing
+Tests live in `tests/` and should rely on the existing dry-run fixtures where possible.  New parsing behaviour should be accompanied by fixture-based tests to avoid hitting the live council site.

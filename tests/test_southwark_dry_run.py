@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from southwark.config import Settings, SnapshotMode
+from southwark.config import SnapshotMode, SouthwarkSettings
 from southwark.runner import run
 
 
 def test_southwark_dry_run(tmp_path: Path) -> None:
-    settings = Settings(
-        output_root=tmp_path,
+    settings = SouthwarkSettings(
+        output_dir=tmp_path,
         dry_run=True,
         snapshot_mode=SnapshotMode.ALL,
         jsonl_output=True,
